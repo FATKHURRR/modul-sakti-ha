@@ -1,0 +1,11 @@
+{
+  "domain": "modul_sakti",
+  "name": "Modul Sakti BMS Monitor",
+  "codeowners": ["@FATKHURRR"],
+  "config_flow": true,
+  "documentation": "https://github.com/FATKHURRR/modul-sakti-ha",
+  "issue_tracker": "https://github.com/FATKHURRR/modul-sakti-ha/issues",
+  "iot_class": "local_push",
+  "requirements": [],
+  "version": "1.2.0"
+}

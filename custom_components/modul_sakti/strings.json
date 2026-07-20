@@ -1,0 +1,51 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Tambah Modul Sakti",
+        "description": "Masukkan ID Modul Sakti, dan pilih Server 1 ( Baru) dan Server 2 (lama).",
+        "data": {
+          "module_id": "ID Modul / Logger",
+          "server": "Server"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Modul Sakti hanya boleh ditambahkan sekali. Tambah/hapus ID modul lewat Configure."
+    },
+    "error": {
+      "invalid_id": "ID modul tidak boleh kosong."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Kelola ID Modul Sakti",
+        "menu_options": {
+          "add_module": "Tambah ID Modul",
+          "remove_module": "Hapus ID Modul"
+        }
+      },
+      "add_module": {
+        "title": "Tambah ID Modul",
+        "data": {
+          "module_id": "ID Modul / Logger",
+          "server": "Server"
+        }
+      },
+      "remove_module": {
+        "title": "Hapus ID Modul",
+        "data": {
+          "module_id": "Pilih ID Modul yang akan dihapus"
+        }
+      }
+    },
+    "abort": {
+      "no_modules": "Belum ada ID modul yang terdaftar."
+    },
+    "error": {
+      "invalid_id": "ID modul tidak boleh kosong.",
+      "already_exists": "ID modul ini sudah terdaftar."
+    }
+  }
+}
