@@ -12,7 +12,7 @@ Custom Component yang otomatis:
 ## Instalasi via HACS (Custom Repository)
 
 1. HACS -> menu titik tiga (kanan atas) -> **Custom repositories**
-2. Masukkan URL repo GitHub kamu, kategori pilih **Integration**
+2. Masukkan URL : https://github.com/FATKHURRR/modul-sakti-ha ,  kategori pilih **Integration**
 3. Cari "Modul Sakti BMS Monitor" di HACS -> Download
 4. Restart Home Assistant
 
