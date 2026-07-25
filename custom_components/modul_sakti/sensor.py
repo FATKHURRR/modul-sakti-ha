@@ -406,7 +406,7 @@ SUMMARY_SENSOR_DESCRIPTIONS: tuple[SummarySensorDescription, ...] = (
     ),
     SummarySensorDescription(
         key="summary_heap_frag",
-        name="Heap Frag.",
+        name="Heap Fragmentation",
         native_unit_of_measurement="%",
         icon="mdi:puzzle-outline",
         state_class=SensorStateClass.MEASUREMENT,
@@ -423,7 +423,7 @@ SUMMARY_SENSOR_DESCRIPTIONS: tuple[SummarySensorDescription, ...] = (
         # "Loop x.xx kHz" di dashboard). Kalau ternyata field ini masih dalam
         # Hz mentah, tinggal ganti value_fn jadi round(float(...) / 1000, 2).
         key="summary_loop_khz",
-        name="Loop",
+        name="Loop Per Second",
         native_unit_of_measurement="kHz",
         icon="mdi:sine-wave",
         state_class=SensorStateClass.MEASUREMENT,
@@ -448,7 +448,7 @@ SUMMARY_SENSOR_DESCRIPTIONS: tuple[SummarySensorDescription, ...] = (
     ),
     SummarySensorDescription(
         key="summary_vbus",
-        name="VBus",
+        name="Volt Bus",
         native_unit_of_measurement="V",
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -457,7 +457,7 @@ SUMMARY_SENSOR_DESCRIPTIONS: tuple[SummarySensorDescription, ...] = (
     ),
     SummarySensorDescription(
         key="summary_vpack",
-        name="VPack",
+        name="Volt Pack",
         native_unit_of_measurement="V",
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -466,7 +466,7 @@ SUMMARY_SENSOR_DESCRIPTIONS: tuple[SummarySensorDescription, ...] = (
     ),
     SummarySensorDescription(
         key="summary_ibus",
-        name="IBus",
+        name="Current Bus",
         native_unit_of_measurement="A",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -475,7 +475,7 @@ SUMMARY_SENSOR_DESCRIPTIONS: tuple[SummarySensorDescription, ...] = (
     ),
     SummarySensorDescription(
         key="summary_ipack",
-        name="IPack",
+        name="Current Pack",
         native_unit_of_measurement="A",
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -484,7 +484,7 @@ SUMMARY_SENSOR_DESCRIPTIONS: tuple[SummarySensorDescription, ...] = (
     ),
     SummarySensorDescription(
         key="summary_pbus",
-        name="PBus",
+        name="Power Bus",
         native_unit_of_measurement="W",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -495,7 +495,7 @@ SUMMARY_SENSOR_DESCRIPTIONS: tuple[SummarySensorDescription, ...] = (
     ),
     SummarySensorDescription(
         key="summary_ppack",
-        name="PPack",
+        name="Power Pack",
         native_unit_of_measurement="W",
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
