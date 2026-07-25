@@ -24,7 +24,9 @@ from .const import (
     MANUFACTURER,
     SIGNAL_BMS_UPDATE,
     SIGNAL_INFO_UPDATE,
+    SIGNAL_INFOJSON_UPDATE,
     SIGNAL_NEW_BMS,
+    SIGNAL_NEW_INFOJSON,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -348,6 +350,242 @@ class ModulSaktiBmsSensor(SensorEntity):
 
 
 # ---------------------------------------------------------------------------
+# Summary sensors (topic: sysMon/<id>/infoJson -> payload JSON gabungan
+# device/memory + ringkasan baterai). Entity dibuat sekali secara dinamis
+# begitu topic ini pertama kali terlihat -- kalau device tidak pernah publish
+# infoJson, entity-entity ini tidak pernah dibuat (mirip pola AutoPoll di atas).
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class SummarySensorDescription(SensorEntityDescription):
+    value_fn: Callable[[dict], Any] = field(default=lambda data: None)
+
+
+def _parse_uptime_dhms(raw) -> str | None:
+    try:
+        seconds = int(float(raw))
+    except (ValueError, TypeError):
+        return None
+    days, remainder = divmod(seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{days}d {hours}h:{minutes:02d}:{secs:02d} s"
+
+
+SUMMARY_SENSOR_DESCRIPTIONS: tuple[SummarySensorDescription, ...] = (
+    # -- Device & Memory --
+    SummarySensorDescription(
+        key="summary_ip",
+        name="IP Address",
+        icon="mdi:ip-network",
+        value_fn=lambda d: d["dev"]["ip"],
+    ),
+    SummarySensorDescription(
+        key="summary_rssi",
+        name="RSSI",
+        native_unit_of_measurement="dBm",
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: int(d["dev"]["rssi"]),
+    ),
+    SummarySensorDescription(
+        key="summary_free_heap",
+        name="Free Heap",
+        native_unit_of_measurement="bytes",
+        icon="mdi:memory",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: int(d["dev"]["heap"]),
+    ),
+    SummarySensorDescription(
+        key="summary_max_alloc_heap",
+        name="Max Alloc Heap",
+        native_unit_of_measurement="bytes",
+        icon="mdi:memory",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: int(d["dev"]["max_heap"]),
+    ),
+    SummarySensorDescription(
+        key="summary_heap_frag",
+        name="Heap Frag.",
+        native_unit_of_measurement="%",
+        icon="mdi:puzzle-outline",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: int(d["dev"]["frag"]),
+    ),
+    SummarySensorDescription(
+        key="summary_uptime",
+        name="Uptime",
+        icon="mdi:timer-outline",
+        value_fn=lambda d: _parse_uptime_dhms(d["dev"]["uptime"]),
+    ),
+    SummarySensorDescription(
+        # NOTE: field "cc" diasumsikan sudah dalam satuan kHz (sesuai tampilan
+        # "Loop x.xx kHz" di dashboard). Kalau ternyata field ini masih dalam
+        # Hz mentah, tinggal ganti value_fn jadi round(float(...) / 1000, 2).
+        key="summary_loop_khz",
+        name="Loop",
+        native_unit_of_measurement="kHz",
+        icon="mdi:sine-wave",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_fn=lambda d: round(float(d["dev"]["cc"]), 2),
+    ),
+    SummarySensorDescription(
+        key="summary_firmware",
+        name="Firmware Version",
+        icon="mdi:firmware",
+        value_fn=lambda d: d["dev"]["FW"],
+    ),
+    # -- Battery Summary --
+    SummarySensorDescription(
+        key="summary_soc",
+        name="State of Charge",
+        native_unit_of_measurement="%",
+        device_class=SensorDeviceClass.BATTERY,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_fn=lambda d: round(float(d["sum"]["SOC"]), 2),
+    ),
+    SummarySensorDescription(
+        key="summary_vbus",
+        name="VBus",
+        native_unit_of_measurement="V",
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_fn=lambda d: round(float(d["sum"]["vbus"]), 2),
+    ),
+    SummarySensorDescription(
+        key="summary_vpack",
+        name="VPack",
+        native_unit_of_measurement="V",
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_fn=lambda d: round(float(d["sum"]["vpack"]), 2),
+    ),
+    SummarySensorDescription(
+        key="summary_ibus",
+        name="IBus",
+        native_unit_of_measurement="A",
+        device_class=SensorDeviceClass.CURRENT,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_fn=lambda d: round(float(d["sum"]["ibus"]), 2),
+    ),
+    SummarySensorDescription(
+        key="summary_ipack",
+        name="IPack",
+        native_unit_of_measurement="A",
+        device_class=SensorDeviceClass.CURRENT,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        value_fn=lambda d: round(float(d["sum"]["ipack"]), 2),
+    ),
+    SummarySensorDescription(
+        key="summary_pbus",
+        name="PBus",
+        native_unit_of_measurement="W",
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda d: round(
+            float(d["sum"]["vbus"]) * float(d["sum"]["ibus"]), 1
+        ),
+    ),
+    SummarySensorDescription(
+        key="summary_ppack",
+        name="PPack",
+        native_unit_of_measurement="W",
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda d: round(
+            float(d["sum"]["vpack"]) * float(d["sum"]["ipack"]), 1
+        ),
+    ),
+    SummarySensorDescription(
+        key="summary_min_cell",
+        name="Min Cell",
+        native_unit_of_measurement="mV",
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: int(d["sum"]["min_cell"]),
+    ),
+    SummarySensorDescription(
+        key="summary_max_cell",
+        name="Max Cell",
+        native_unit_of_measurement="mV",
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: int(d["sum"]["max_cell"]),
+    ),
+    SummarySensorDescription(
+        key="summary_delta_cell",
+        name="Delta Cell",
+        native_unit_of_measurement="mV",
+        device_class=SensorDeviceClass.VOLTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: int(d["sum"]["max_cell"]) - int(d["sum"]["min_cell"]),
+    ),
+    SummarySensorDescription(
+        key="summary_total_bms",
+        name="Total BMS",
+        native_unit_of_measurement="Unit",
+        icon="mdi:battery-heart-variant",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: int(d["sum"]["count"]),
+    ),
+)
+
+
+class ModulSaktiSummarySensor(SensorEntity):
+    """Sensor ringkasan device & baterai dari topic infoJson."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+
+    def __init__(
+        self, entry_id: str, module_id: str, description: SummarySensorDescription
+    ) -> None:
+        self.entity_description = description
+        self._entry_id = entry_id
+        self._module_id = module_id
+        self._attr_unique_id = f"{DOMAIN}_{module_id}_{description.key}"
+        self._attr_available = False
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{module_id}_summary")},
+            name="Modul Sakti Summary",
+            manufacturer=MANUFACTURER,
+            model="BMS Monitor Summary",
+        )
+
+    async def async_added_to_hass(self) -> None:
+        signal = SIGNAL_INFOJSON_UPDATE.format(
+            entry_id=self._entry_id, module_id=self._module_id
+        )
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, signal, self._handle_payload)
+        )
+
+    @callback
+    def _handle_payload(self, payload: str) -> None:
+        try:
+            data = json.loads(payload)
+        except (ValueError, TypeError):
+            return
+        try:
+            value = self.entity_description.value_fn(data)
+        except (KeyError, ValueError, TypeError):
+            return
+        if value is None:
+            return
+        self._attr_native_value = value
+        self._attr_available = True
+        self.async_write_ha_state()
+
+
+# ---------------------------------------------------------------------------
 # Platform setup (Fixed setup entry context)
 # ---------------------------------------------------------------------------
 
@@ -401,5 +639,29 @@ async def async_setup_entry(
             hass,
             SIGNAL_NEW_BMS.format(entry_id=entry.entry_id),
             _handle_new_bms,
+        )
+    )
+
+    # 3. Setup listener dinamis untuk penemuan topic infoJson (summary)
+    @callback
+    def _handle_new_infojson(new_module_id: str) -> None:
+        if new_module_id != module_id:
+            return
+
+        _LOGGER.info(
+            "Ringkasan infoJson ditemukan untuk module %s", new_module_id
+        )
+
+        summary_entities = [
+            ModulSaktiSummarySensor(entry.entry_id, new_module_id, description)
+            for description in SUMMARY_SENSOR_DESCRIPTIONS
+        ]
+        async_add_entities(summary_entities)
+
+    entry.async_on_unload(
+        async_dispatcher_connect(
+            hass,
+            SIGNAL_NEW_INFOJSON.format(entry_id=entry.entry_id),
+            _handle_new_infojson,
         )
     )

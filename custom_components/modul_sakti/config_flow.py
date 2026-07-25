@@ -16,6 +16,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import BROKER_PRESETS, CONF_MODULE_ID, CONF_SERVER, DOMAIN
+from .id_validator import async_is_id_allowed
 
 
 def _server_selector() -> selector.SelectSelector:
@@ -54,6 +55,8 @@ class ModulSaktiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             module_id = str(user_input[CONF_MODULE_ID]).strip()
             if not module_id:
                 errors["base"] = "invalid_id"
+            elif not await async_is_id_allowed(self.hass, module_id):
+                errors["base"] = "id_not_allowed"
             else:
                 await self.async_set_unique_id(module_id)
                 self._abort_if_unique_id_configured()

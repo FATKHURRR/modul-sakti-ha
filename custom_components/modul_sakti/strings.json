@@ -14,7 +14,8 @@
       "single_instance_allowed": "Modul Sakti hanya boleh ditambahkan sekali. Tambah/hapus ID modul lewat Configure."
     },
     "error": {
-      "invalid_id": "ID modul tidak boleh kosong."
+      "invalid_id": "ID modul tidak boleh kosong.",
+      "id_not_allowed": "ID Modul tidak terdaftar."
     }
   },
   "options": {

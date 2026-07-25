@@ -26,7 +26,9 @@ from .const import (
     SIGNAL_BMS_UPDATE,
     SIGNAL_CONNECTION_STATUS,
     SIGNAL_INFO_UPDATE,
+    SIGNAL_INFOJSON_UPDATE,
     SIGNAL_NEW_BMS,
+    SIGNAL_NEW_INFOJSON,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,6 +37,8 @@ _LOGGER = logging.getLogger(__name__)
 AUTOPOLL_RE = re.compile(r"^sysMon/([^/]+)/AutoPoll/([^/]+)/([^/]+)$")
 # sysMon/<id>/info/  (trailing slash dari device asli, tapi juga terima tanpa slash)
 INFO_RE = re.compile(r"^sysMon/([^/]+)/info/?$")
+# sysMon/<id>/infoJson atau sysMon/<id>/infoJson/  -> ringkasan device + baterai (JSON)
+INFOJSON_RE = re.compile(r"^sysMon/([^/]+)/infoJson/?$")
 
 
 class ModulSaktiMqttClient:
@@ -58,6 +62,9 @@ class ModulSaktiMqttClient:
         self._module_ids: set[str] = set()
         # (module_id, brand, addr) yang sudah pernah terlihat -> untuk trigger "BMS baru"
         self._known_bms: set[tuple[str, str, str]] = set()
+        # module_id yang topic infoJson-nya sudah pernah terlihat -> untuk trigger
+        # pembuatan entity summary sekali saja (mirip _known_bms di atas)
+        self._known_infojson: set[str] = set()
 
         client_id = f"ha_modul_sakti_{server_key}_{entry_id[:8]}"
         self._client = mqtt.Client(client_id=client_id, clean_session=True)
@@ -160,6 +167,27 @@ class ModulSaktiMqttClient:
                 async_dispatcher_send,
                 self.hass,
                 SIGNAL_INFO_UPDATE.format(entry_id=self.entry_id, module_id=module_id),
+                payload,
+            )
+            return
+
+        infojson_match = INFOJSON_RE.match(topic)
+        if infojson_match:
+            module_id = infojson_match.group(1)
+            if module_id not in self._known_infojson:
+                self._known_infojson.add(module_id)
+                self.hass.loop.call_soon_threadsafe(
+                    async_dispatcher_send,
+                    self.hass,
+                    SIGNAL_NEW_INFOJSON.format(entry_id=self.entry_id),
+                    module_id,
+                )
+            self.hass.loop.call_soon_threadsafe(
+                async_dispatcher_send,
+                self.hass,
+                SIGNAL_INFOJSON_UPDATE.format(
+                    entry_id=self.entry_id, module_id=module_id
+                ),
                 payload,
             )
             return
