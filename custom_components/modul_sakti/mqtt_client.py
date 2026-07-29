@@ -71,13 +71,18 @@ class ModulSaktiMqttClient:
         if username:
             self._client.username_pw_set(username, password or None)
 
+        # Reconnect delay bawaan paho (min 1 detik, max 120 detik backoff)
+        self._client.reconnect_delay_set(min_delay=1, max_delay=120)
+
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
         self._client.on_message = self._on_message
 
     async def async_connect(self) -> None:
+        """Memulai koneksi secara asynchronous dan menjalankan background loop."""
+        # KUNCI PERBAIKAN 1: Gunakan connect_async agar paho-mqtt mengelola socket reconnect
         await self.hass.async_add_executor_job(
-            self._client.connect, self._host, self._port, 60
+            self._client.connect_async, self._host, self._port, 60
         )
         self._client.loop_start()
 
@@ -128,6 +133,8 @@ class ModulSaktiMqttClient:
             self._host,
             self._port,
         )
+        # KUNCI PERBAIKAN 2: Setiap kali koneksi tersambung (baik pertama kali maupun reconnect),
+        # pastikan semua modul di-subscribe ulang secara otomatis.
         for module_id in self._module_ids:
             client.subscribe(f"sysMon/{module_id}/#")
 
@@ -152,6 +159,18 @@ class ModulSaktiMqttClient:
             ),
             False,
         )
+
+        # KUNCI PERBAIKAN 3: Jika disconnect terjadi bukan karena sengaja diputus (rc != 0),
+        # paksa paho panggil reconnect_async jika loop terhenti.
+        if rc != 0:
+            try:
+                client.reconnect()
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug(
+                    "Modul Sakti [%s]: pemicu reconnect manual gagal (akan dicoba otomatis oleh loop): %s",
+                    self.server_key,
+                    err,
+                )
 
     def _on_message(self, client, userdata, msg) -> None:
         topic = msg.topic
