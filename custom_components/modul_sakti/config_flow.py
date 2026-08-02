@@ -54,9 +54,9 @@ class ModulSaktiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             module_id = str(user_input[CONF_MODULE_ID]).strip()
             if not module_id:
-                errors["base"] = "invalid_id"
+                errors["base"] = "Invalid"
             elif not await async_is_id_allowed(self.hass, module_id):
-                errors["base"] = "id_not_allowed"
+                errors["base"] = "Unknown ID"
             else:
                 await self.async_set_unique_id(module_id)
                 self._abort_if_unique_id_configured()
